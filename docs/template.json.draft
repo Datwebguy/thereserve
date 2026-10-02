@@ -1,0 +1,16 @@
+{
+  "_note": "DRAFT. Field names are placeholders. Copy the real schema from an existing scaffold-hbar template before submitting, then delete this line.",
+  "name": "the-reserve",
+  "title": "The Reserve",
+  "description": "Issue an HTS token that can't be minted beyond its HBAR reserves, valued by Chainlink and protected by a price guard, with every action logged to HCS.",
+  "author": "<your-github-handle>",
+  "repository": "https://github.com/<owner>/<repo>",
+  "license": "MIT",
+  "tags": ["asset-tokenization", "stablecoin", "oracles", "chainlink", "hts", "hcs"],
+  "hederaServices": ["HTS", "HCS", "Smart Contracts", "Mirror Node"],
+  "integrations": ["Chainlink Data Feeds"],
+  "optionalIntegrations": ["Pyth"],
+  "packages": ["hardhat", "nextjs", "logger"],
+  "node": ">=20.18.3",
+  "network": "testnet"
+}
