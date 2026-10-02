@@ -1,0 +1,84 @@
+{
+  "name": "the-reserve",
+  "description": "Issue an HTS token that can't be minted beyond its HBAR reserves: Chainlink HBAR/USD values the collateral, a price guard refuses bad prices, and every action is logged to HCS.",
+  "version": "1.0.0",
+  "create-scaffold-hbar": {
+    "capabilities": {
+      "frontend": [
+        "nextjs-app"
+      ],
+      "solidityFramework": [
+        "hardhat"
+      ],
+      "packageManager": [
+        "yarn",
+        "npm"
+      ]
+    },
+    "defaults": {
+      "frontend": "nextjs-app",
+      "solidityFramework": "hardhat",
+      "packageManager": "yarn"
+    },
+    "requirements": {
+      "node": ">=20.18.3"
+    },
+    "outro": {
+      "sections": [
+        {
+          "steps": [
+            {
+              "text": "The Reserve: HBAR collateral, Chainlink HBAR/USD, a price guard, an HTS token only the contract can mint, and an HCS audit log. See README.md for the full walkthrough."
+            }
+          ]
+        },
+        {
+          "title": "Try it locally (Hedera testnet fork)",
+          "steps": [
+            {
+              "label": "Run the contract tests",
+              "command": "{run:hardhat:test}"
+            },
+            {
+              "label": "Start a local node that forks testnet",
+              "command": "{run:hardhat:chain}"
+            },
+            {
+              "label": "In a second terminal, deploy to it",
+              "command": "{run:hardhat:deploy} --network localhost"
+            },
+            {
+              "label": "Start the frontend",
+              "command": "{run:next:dev}"
+            }
+          ]
+        },
+        {
+          "title": "Go live on testnet",
+          "steps": [
+            {
+              "label": "Import your Hedera testnet ECDSA key",
+              "command": "{run:hardhat:account:import}"
+            },
+            {
+              "label": "Get testnet HBAR",
+              "url": "https://portal.hedera.com/faucet"
+            },
+            {
+              "label": "Deploy to testnet",
+              "command": "{run:hardhat:deploy} --network hederaTestnet"
+            },
+            {
+              "label": "Run the proof transactions (deposit, mint, refused mint)",
+              "command": "{run:hardhat:demo} --network hederaTestnet"
+            },
+            {
+              "label": "Post every contract event to HCS",
+              "command": "{run:logger}"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
