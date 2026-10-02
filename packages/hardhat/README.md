@@ -20,9 +20,10 @@ From the repo root, use the explicit `hardhat:*` scripts for this package. Insid
 
    **`yarn hardhat:deploy` without `--network localhost`** uses the default network `hardhat`, which is the **in-process ephemeral** Hardhat network—**not** the same process as `yarn hardhat:chain`. For deploys against the forked node you started in step 1, always pass **`--network localhost`** while that node is running.
 
-3. **Run contract tests** (from repo root; tests use `HEDERA_FORKING=true` and can run against the fork or standalone):
+3. **Run contract tests** (from repo root). The unit tests run offline with a mock HTS system contract installed at `0x167`; the fork tests run against a Hedera testnet fork and need network access:
    ```bash
    yarn hardhat:test
+   yarn hardhat:test:fork
    ```
 
 ## Deploy and verify on Hedera testnet/mainnet

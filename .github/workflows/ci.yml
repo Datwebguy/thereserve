@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    name: Install, lint, test, build (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: ["20.18.3", "22"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: yarn
+
+      - name: Install
+        run: yarn install --immutable
+
+      - name: Lint
+        run: |
+          yarn next:lint --max-warnings=0
+          yarn hardhat:lint --max-warnings=0
+          yarn logger:lint --max-warnings=0
+
+      - name: Type-check
+        run: |
+          yarn next:check-types
+          yarn hardhat:check-types
+          yarn workspace @sh/logger check-types
+
+      - name: Contract tests (offline, mock HTS at 0x167)
+        run: yarn hardhat:test
+
+      - name: Logger tests
+        run: yarn logger:test
+
+      - name: Build
+        run: yarn build
+
+  testnet-fork:
+    name: Testnet fork (live Chainlink feed, emulated HTS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: yarn
+
+      - name: Install
+        run: yarn install --immutable
+
+      - name: Fork tests
+        run: yarn hardhat:test:fork
+
+      - name: Deploy to a local node forking testnet, then run the demo
+        run: |
+          yarn hardhat:chain &
+          timeout 90s bash -c 'until curl -s -X POST http://127.0.0.1:8545 -H "Content-Type: application/json" --data "{\"jsonrpc\":\"2.0\",\"method\":\"web3_clientVersion\",\"params\":[],\"id\":1}" >/dev/null; do sleep 2; done'
+          yarn hardhat:deploy --network localhost
+          yarn hardhat:demo --network localhost
