@@ -47,7 +47,7 @@ yarn deploy --network localhost   # terminal 2
 yarn start            # terminal 3: http://localhost:3000
 ```
 
-With npm, use `npm run <script>` in place of `yarn <script>` (the CLI rewrites the scripts for you).
+With npm, use `npm run <script>` in place of `yarn <script>` (the CLI rewrites the scripts for you). If you reinstall by hand, use `npm install --legacy-peer-deps` as the CLI does. The root `package.json` pins `@coinbase/cdp-sdk` to 1.44.1 through npm `overrides`: newer releases (pulled in by wallet connectors) import optional `@x402/*` packages that npm does not install, which breaks the Next.js build. Yarn already resolves 1.44.1 from `yarn.lock`.
 
 ## Prerequisites
 
@@ -211,6 +211,8 @@ healthy: debt × minRatioBps ≤ value × 10,000
 | 4 | `|answer - lastPrice| <= lastPrice × maxJumpBps`, while the last accepted price is a live reference | 4 |
 
 The jump check compares against the **last accepted price** only while that price is recent, meaning it was published no more than `maxStaleness` before the new answer. Without that, one large real move would lock minting forever. With it, a sudden jump is refused, and if the market really has moved, minting resumes once the old reference expires (at most `maxStaleness` later). Burns are never blocked.
+
+The jump check needs a reference. The first price accepted after deployment, or after the reference expires, is checked for shape and freshness only. A second, independent source (reason code 5, see [Extending the template](#extending-the-template)) closes that gap.
 
 | Parameter | Default | Why |
 |---|---|---|
