@@ -66,6 +66,7 @@ yarn logger
 9. **No secrets in the repo.** Only `.env.example`.
 10. **The logger must stay idempotent:** never post the same event (`txHash:logIndex`) twice, and resume after restart.
 11. **No AI attribution anywhere.** Do not add AI tools or agents as authors or co-authors: no `Co-Authored-By` lines, no "Generated with" footers in commits or PRs, and no AI credits in code comments, docs or `template.json`. The repository owner is the sole author.
+12. **No fake data, no deployments without the owner.** No mock-ups, hard-coded or invented data, or fake deployments presented as real; mocks live only in tests. Never deploy, sign transactions, use the owner's keys or wallets, or create wallets or accounts on testnet or mainnet without the owner's explicit permission each time. Never commit `deployedContracts.ts` entries from a local chain; only real deployments the owner made belong there.
 
 ## Making changes
 

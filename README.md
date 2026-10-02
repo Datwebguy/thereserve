@@ -122,10 +122,10 @@ Each package reads its own `.env` file. Only `.env.example` files are committed.
 | Name | Purpose | Example | Where to get it |
 |---|---|---|---|
 | `HEDERA_NETWORK` | `testnet` or `mainnet` | `testnet` | |
-| `RESERVE_CONTRACT` | The Reserve, `0.0.x` or EVM address | `0x737b…0269` | Printed by `yarn deploy` |
-| `LOGGER_OPERATOR_ID` | The logger's own account | `0.0.12345` | [portal.hedera.com](https://portal.hedera.com) |
-| `LOGGER_OPERATOR_KEY` | Its private key (DER or hex) | `302e…` | Same |
-| `HCS_TOPIC_ID` | Topic to post to; empty creates one | `0.0.67890` | Printed by the first `yarn logger` |
+| `RESERVE_CONTRACT` | The Reserve, `0.0.x` or EVM address | `<your TheReserve address>` | Printed by `yarn deploy` |
+| `LOGGER_OPERATOR_ID` | The logger's own account | `0.0.<your account>` | [portal.hedera.com](https://portal.hedera.com) |
+| `LOGGER_OPERATOR_KEY` | Its private key (DER or hex) | `<your logger key>` | Same |
+| `HCS_TOPIC_ID` | Topic to post to; empty creates one | `0.0.<topic>` | Printed by the first `yarn logger` |
 | `MIRROR_NODE_URL` | Mirror Node override | `https://testnet.mirrornode.hedera.com` | Default works |
 | `POLL_INTERVAL_MS` | How often to poll | `10000` | |
 | `LOGGER_STATE_FILE` | Where progress is saved | `.logger-state.json` | |
@@ -136,7 +136,7 @@ Use a separate, lightly funded account for the logger. Its key becomes the topic
 
 | Name | Purpose | Example |
 |---|---|---|
-| `NEXT_PUBLIC_HCS_TOPIC_ID` | Topic shown on `/log` | `0.0.67890` |
+| `NEXT_PUBLIC_HCS_TOPIC_ID` | Topic shown on `/log` | `0.0.<topic>` |
 | `NEXT_PUBLIC_HCS_NETWORK` | Network the topic is on | `testnet` |
 | `NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID` | WalletConnect project | from [cloud.reown.com](https://cloud.reown.com) |
 | `NEXT_PUBLIC_HEDERA_TESTNET_RPC_URL` | RPC override | `https://testnet.hashio.io/api` |
@@ -238,21 +238,21 @@ Defined in [`ReasonCodes.sol`](packages/hardhat/contracts/ReasonCodes.sol) and [
 
 ## The audit log
 
-Contracts cannot write to HCS, so [`packages/logger`](packages/logger) does it. It polls the Mirror Node for TheReserve's logs and submits one HCS message per event:
+Contracts cannot write to HCS, so [`packages/logger`](packages/logger) does it. It polls the Mirror Node for TheReserve's logs and submits one HCS message per event. The message format (field values here are placeholders, not real data):
 
 ```json
 {
   "v": 1,
   "event": "MintRejected",
-  "account": "0x7099…79C8",
-  "amount": "99000000",
+  "account": "<EVM address of the caller>",
+  "amount": "<amount, in the unit below>",
   "unit": "token",
   "reasonCode": 1,
-  "price": "10531056",
-  "txHash": "0x…",
+  "price": "<HBAR/USD with 8 decimals, or null>",
+  "txHash": "<transaction hash>",
   "logIndex": 0,
-  "consensusTimestamp": "1790000020.000000001",
-  "contract": "0.0.5005"
+  "consensusTimestamp": "<seconds.nanoseconds>",
+  "contract": "<0.0.x of TheReserve>"
 }
 ```
 
