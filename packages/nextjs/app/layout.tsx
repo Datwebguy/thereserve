@@ -6,8 +6,9 @@ import "~~/styles/globals.css";
 import { getMetadata } from "~~/utils/scaffold-hbar/getMetadata";
 
 export const metadata = getMetadata({
-  title: "Scaffold-HBAR",
-  description: "Built with Scaffold-HBAR",
+  title: "The Reserve",
+  description:
+    "An HTS token that can't be minted beyond its HBAR reserves, valued by Chainlink and guarded against bad prices.",
 });
 
 const ScaffoldHbarApp = ({ children }: { children: React.ReactNode }) => {
