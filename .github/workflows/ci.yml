@@ -28,6 +28,9 @@ jobs:
           yarn hardhat:lint --max-warnings=0
           yarn logger:lint --max-warnings=0
 
+      - name: Compile contracts (generates typechain types)
+        run: yarn hardhat:compile
+
       - name: Type-check
         run: |
           yarn next:check-types
