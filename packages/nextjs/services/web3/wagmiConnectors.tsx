@@ -22,7 +22,11 @@ export const wagmiConnectors = () => {
     },
   ];
 
-  if (scaffoldConfig.enableBurnerWallet && hasDevNetwork) {
+  // The burner wallet is a throwaway key kept in the browser and it connects itself on load. It is for local
+  // development only, so a deployed site never connects visitors to an empty, unfunded address.
+  const servedLocally = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+
+  if (scaffoldConfig.enableBurnerWallet && hasDevNetwork && servedLocally) {
     walletGroups.push({
       groupName: "Development",
       wallets: [rainbowkitBurnerWallet],
