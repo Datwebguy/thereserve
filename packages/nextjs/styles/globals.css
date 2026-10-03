@@ -150,3 +150,15 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/*
+ * The debug-contracts package draws its values and Read/Send buttons in "primary content", which it sets to
+ * white in light mode while drawing them on light grey panels. Use the page's text colour there, and keep
+ * white only on its indigo backgrounds (tooltips).
+ */
+:root:not([data-theme="dark"]) {
+  --color-sui-primary-content: #11151d;
+}
+:root:not([data-theme="dark"]) .bg-sui-primary {
+  --color-sui-primary-content: #ffffff;
+}
