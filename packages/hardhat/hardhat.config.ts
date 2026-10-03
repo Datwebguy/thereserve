@@ -21,9 +21,11 @@ import generateTsAbis from "./scripts/generateTsAbis";
 // Hedera JSON-RPC URL (testnet default). Set HEDERA_RPC_URL in .env for mainnet.
 const hederaRpcUrl = process.env.HEDERA_RPC_URL || "https://testnet.hashio.io/api";
 
-// Deployer key: run `yarn account:generate` or `yarn account:import`, or set __RUNTIME_DEPLOYER_PRIVATE_KEY at runtime.
-const deployerPrivateKey =
-  process.env.__RUNTIME_DEPLOYER_PRIVATE_KEY ?? "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+// Deployer key for Hedera networks. There is no fallback key: `yarn deploy` and `yarn hardhat:demo` decrypt the
+// key stored by `yarn account:import` and pass it in at runtime. Without it the Hedera networks have no signer.
+// Local networks (hardhat, localhost) use Hardhat's built-in test accounts.
+const deployerPrivateKey = process.env.__RUNTIME_DEPLOYER_PRIVATE_KEY;
+const hederaAccounts = deployerPrivateKey ? [deployerPrivateKey] : [];
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -59,12 +61,12 @@ const config: HardhatUserConfig = {
     },
     hederaTestnet: {
       url: "https://testnet.hashio.io/api",
-      accounts: [deployerPrivateKey],
+      accounts: hederaAccounts,
       chainId: 296,
     },
     hederaMainnet: {
       url: "https://mainnet.hashio.io/api",
-      accounts: [deployerPrivateKey],
+      accounts: hederaAccounts,
       chainId: 295,
     },
   },

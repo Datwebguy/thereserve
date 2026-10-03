@@ -37,6 +37,11 @@ async function isAssociated(account: string, token: string): Promise<boolean | u
 async function main() {
   const { ethers, deployments, network } = hre;
   const [signer] = await ethers.getSigners();
+  if (!signer) {
+    throw new Error(
+      "No deployer key. Run `yarn hardhat:account:import`, then `yarn hardhat:demo --network <network>`, which decrypts it.",
+    );
+  }
   const gasPrice = (await ethers.provider.getFeeData()).gasPrice ?? undefined;
   const reserveDeployment = await deployments.get("TheReserve");
   const reserve = await ethers.getContractAt("TheReserve", reserveDeployment.address, signer);
