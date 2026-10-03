@@ -288,18 +288,18 @@ CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs install, lint, 
 
 ## Testnet proof
 
-> Pending. The links below are added after the first testnet deployment with `yarn deploy --network hederaTestnet` and `yarn hardhat:demo --network hederaTestnet`. Nothing here is filled in until it exists on HashScan.
+Deployed to Hedera testnet with `yarn deploy --network hederaTestnet` and exercised with `yarn hardhat:demo --network hederaTestnet`. Every link below is a real testnet record you can check on HashScan.
 
 | What | Link |
 |---|---|
-| PriceGuard deployment | pending |
-| TheReserve deployment | pending |
-| HTS token (supply key and treasury = TheReserve) | pending |
-| Successful mint (`Minted`) | pending |
-| Refused mint, ratio too low (`MintRejected`, code 1) | pending |
-| HCS topic with both outcomes | pending |
+| PriceGuard deployment | [`0x13793aD8D2d6e746839a5d0840C23C4b735b938e`](https://hashscan.io/testnet/contract/0x13793aD8D2d6e746839a5d0840C23C4b735b938e), bound to TheReserve in [this transaction](https://hashscan.io/testnet/transaction/0x4791d1065a14db9f1f8972cc0da788324fc5c3f3934c2017105d752934dee16c) |
+| TheReserve deployment | [0.0.10838609 (`0x2B82C027916302E828607645fCB63644468738c7`)](https://hashscan.io/testnet/contract/0x2B82C027916302E828607645fCB63644468738c7) |
+| HTS token (supply key and treasury = TheReserve) | [0.0.10838612](https://hashscan.io/testnet/token/0.0.10838612), created by the contract in [this transaction](https://hashscan.io/testnet/transaction/0x8b3c9e9acd125c0772dd97967a0838b53ea1a16a79f8cc0864c36ce77eb6c251); no admin key |
+| Successful mint (`Minted`) | [3.354055 rUSD against 100 HBAR at $0.10062165](https://hashscan.io/testnet/transaction/0x9ba39b0d59577a93a52651c262bf7810c218544e10d9f3d765c6f2939826a8a2) |
+| Refused mint, ratio too low (`MintRejected`, code 1) | [20.12433 rUSD refused at the same price](https://hashscan.io/testnet/transaction/0x07695edb60d2fd2cdd2d1b5267fb1c44d99b166d0083906f7c010fb4623081ee) |
+| HCS topic with both outcomes | [0.0.10841640](https://hashscan.io/testnet/topic/0.0.10841640): `TokenCreated`, `Deposited`, `Minted` and `MintRejected` as messages 1 to 4 |
 
-Until then, the same behaviour is shown by the unit tests, the fork tests against live testnet data, and the CI job that deploys to a local testnet fork and runs the demo.
+The price is Chainlink's testnet HBAR/USD answer at the time of the demo, read through PriceGuard; the mint amounts were computed from it on-chain. The deployment uses the default parameters: 90,000 s maximum price age, 2,000 bps maximum jump and a 150% minimum ratio.
 
 ## Upgrade path: Proof of Reserve
 
