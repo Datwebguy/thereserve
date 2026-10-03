@@ -7,6 +7,7 @@ import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { Card, NotDeployed, type Outcome, OutcomeBanner, Stat, describeReceipt } from "~~/components/reserve";
 import {
   useDeployedContractInfo,
+  useHederaAccountId,
   useScaffoldReadContract,
   useScaffoldWriteContract,
   useTargetNetwork,
@@ -102,6 +103,17 @@ const Vault: NextPage = () => {
   const { data: ratio } = useScaffoldReadContract({ ...read, functionName: "ratioOf", args: [address] });
   const { data: peek } = useScaffoldReadContract({ contractName: "PriceGuard", functionName: "peek", watch: true });
 
+  // On Hedera an EVM address only becomes an account once it receives HBAR. The relay rejects calls
+  // sent from an address with no account, so look it up on the Mirror Node before calling isAssociated.
+  const onHedera = isHederaChain(chainId);
+  const {
+    accountId,
+    isLoading: accountLoading,
+    lookupFailed,
+  } = useHederaAccountId(onHedera ? address : undefined, chainId);
+  const noHederaAccount = onHedera && !!address && !accountLoading && !lookupFailed && accountId === null;
+  const accountReady = !onHedera || !!accountId;
+
   const tokenAddress = token && token !== "0x0000000000000000000000000000000000000000" ? token : undefined;
   const tokenRead = { address: tokenAddress, abi: htsTokenAbi, query: { enabled: !!tokenAddress && !!address } };
   // HIP-719 isAssociated() answers for msg.sender, so the call is made from the user's address.
@@ -109,6 +121,7 @@ const Vault: NextPage = () => {
     ...tokenRead,
     functionName: "isAssociated",
     account: address,
+    query: { enabled: tokenRead.query.enabled && accountReady },
   });
   const { data: balance, refetch: refetchBalance } = useReadContract({
     ...tokenRead,
@@ -182,7 +195,14 @@ const Vault: NextPage = () => {
           </Card>
 
           <Card title="1. Associate the token">
-            {!isHederaChain(chainId) ? (
+            {noHederaAccount ? (
+              <p className="m-0 text-sm">
+                <span className="badge badge-warning mr-2">No Hedera account</span>
+                No Hedera account was found for {address}. An EVM address becomes a Hedera account when it first
+                receives HBAR, so send it some HBAR (on testnet, from the faucet linked below), then reload this page to
+                associate the token and deposit.
+              </p>
+            ) : !onHedera ? (
               <p className="m-0 text-sm">
                 Not needed on the local fork: Hedera&apos;s HTS emulation does not model token association. On testnet
                 and mainnet an account must associate the token before receiving it, and this card offers the button.
