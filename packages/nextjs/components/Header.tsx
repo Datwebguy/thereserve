@@ -100,6 +100,9 @@ export const Header = () => {
             <HeaderMenuLinks />
           </ul>
         </details>
+        <Link href="/" passHref className="lg:hidden font-bold text-base whitespace-nowrap">
+          The Reserve
+        </Link>
         <Link href="/" passHref className="hidden lg:flex items-center gap-3 ml-4 mr-6 shrink-0">
           <div className="flex relative w-9 h-9">
             <Image alt="Hedera icon" className="cursor-pointer dark:hidden" fill src="/Hedera-Icon-Dark.svg" />

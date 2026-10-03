@@ -132,7 +132,60 @@ const Log: NextPage = () => {
           {error && <div className="alert alert-error mb-4">{error}</div>}
           {rows.length === 0 && !loading && !error && <p className="m-0">No messages on this topic yet.</p>}
           {rows.length > 0 && (
-            <div className="overflow-x-auto">
+            // Phones: one card per event, so no column is cut off.
+            <ul className="md:hidden flex flex-col gap-3 m-0 p-0 list-none">
+              {rows.map(r => (
+                <li key={r.sequence} className="border border-base-300 rounded-xl p-3 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`badge badge-sm ${badge(r.body?.event)}`}>{r.body?.event ?? "Other"}</span>
+                    <span className="text-xs text-base-content/60">#{r.sequence}</span>
+                  </div>
+                  {r.body ? (
+                    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 mt-2 mb-0">
+                      <dt className="text-base-content/60">Account</dt>
+                      <dd className="m-0 font-mono text-xs self-center">
+                        {r.body.account ? `${r.body.account.slice(0, 6)}…${r.body.account.slice(-4)}` : "–"}
+                      </dd>
+                      {r.body.amount !== null && (
+                        <>
+                          <dt className="text-base-content/60">Amount</dt>
+                          <dd className="m-0">{amountOf(r.body)}</dd>
+                        </>
+                      )}
+                      {r.body.reasonCode !== null && (
+                        <>
+                          <dt className="text-base-content/60">Reason</dt>
+                          <dd className="m-0">{`${r.body.reasonCode}: ${reasonTitle(r.body.reasonCode)}`}</dd>
+                        </>
+                      )}
+                      {r.body.price && (
+                        <>
+                          <dt className="text-base-content/60">Price</dt>
+                          <dd className="m-0">{formatPrice(BigInt(r.body.price))}</dd>
+                        </>
+                      )}
+                      <dt className="text-base-content/60">When</dt>
+                      <dd className="m-0">{toDate(r.body.consensusTimestamp)}</dd>
+                    </dl>
+                  ) : (
+                    <p className="text-xs font-mono break-all mt-2 mb-0">{r.raw}</p>
+                  )}
+                  {r.body && (
+                    <a
+                      className="link text-xs inline-block mt-2"
+                      href={hashscanTx(TOPIC_CHAIN_ID, r.body.txHash)}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      View transaction on HashScan
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {rows.length > 0 && (
+            <div className="hidden md:block overflow-x-auto">
               <table className="table table-sm">
                 <thead>
                   <tr>
