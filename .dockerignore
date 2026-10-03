@@ -1,0 +1,12 @@
+**/node_modules
+**/.next
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+**/.logger-state.json
+packages/hardhat/artifacts
+packages/hardhat/cache
+packages/hardhat/typechain-types
+packages/hardhat/deployments
+.git
