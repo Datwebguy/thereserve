@@ -99,6 +99,15 @@ yarn start
 
 The logger reads from the start of the contract's history, so it also posts events that happened before it was started.
 
+### Keep the logger running
+
+The logger has to keep running for new events to reach the topic. `packages/logger/Dockerfile` builds it alone (build from the repository root), and `packages/logger/railway.json` deploys that image on [Railway](https://railway.com):
+
+1. Create a service from this GitHub repository and set its config file path to `packages/logger/railway.json`.
+2. Set `HEDERA_NETWORK`, `RESERVE_CONTRACT`, `HCS_TOPIC_ID`, `LOGGER_OPERATOR_ID` and `LOGGER_OPERATOR_KEY` as service variables. Use the topic the first run created, or a restart creates a new one.
+
+Each start reads the topic's latest messages to see what was already posted, so restarts and redeploys never post an event twice and no volume is needed.
+
 ## Environment variables
 
 Each package reads its own `.env` file. Only `.env.example` files are committed.
