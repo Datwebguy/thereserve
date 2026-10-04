@@ -1,29 +1,37 @@
 "use client";
 
 import { type ReactNode, createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import type { DAppConnector } from "@hashgraph/hedera-wallet-connect/dist/lib/dapp";
+import type { HederaProvider, hederaNamespace } from "@hashgraph/hedera-wallet-connect";
+import type { AppKit } from "@reown/appkit/react";
+import { useTheme } from "next-themes";
 import { hedera } from "viem/chains";
 import scaffoldConfig from "~~/scaffold.config";
+import { enabledChains, wagmiAdapter } from "~~/services/web3/wagmiConfig";
 import { type MirrorContractResult, entityIdFromLongZero, toMirrorTransactionId } from "~~/utils/hederaWallet";
 import { mirrorNodeUrl } from "~~/utils/reserve";
 
 /**
- * Connects Hedera-native wallets (Kabila, HashPack, Blade and others) through Hedera's WalletConnect
- * namespace. Unlike the EVM (EIP-155) connection, this works with any Hedera account, including ECDSA
- * accounts without an EVM alias and ED25519 accounts.
+ * Wallet connection through Reown AppKit, WalletConnect's own modal with its full wallet list.
+ *
+ * Two adapters sit behind the one modal:
+ * - the wagmi adapter (EIP-155) for MetaMask and other EVM wallets, which backs the app's wagmi reads;
+ * - Hedera's adapter (the `hedera` namespace) for Kabila, HashPack and other Hedera wallets. Unlike
+ *   EIP-155, it works with any Hedera account, including ECDSA accounts without an EVM alias.
+ *
+ * This provider creates AppKit once on the client and exposes the Hedera-native account, if one is
+ * connected, plus a way to send contract calls signed by it.
  */
 
 type HederaWallet = {
-  /** The connected account ("0.0.N"), if any. */
+  /** True once AppKit is ready and the Connect button can open it. */
+  ready: boolean;
+  /** The connected Hedera-native account ("0.0.N"), if any. */
   accountId?: string;
-  /** The account's EVM address, as the contracts see it (msg.sender). */
+  /** That account's EVM address, as the contracts see it (msg.sender). */
   evmAddress?: `0x${string}`;
-  connecting: boolean;
-  connect: () => Promise<void>;
-  disconnect: () => Promise<void>;
   /**
-   * Sends a contract call signed by the connected wallet and waits for the Mirror Node to report it.
-   * `payableTinybars` is sent as msg.value (tinybars on Hedera).
+   * Sends a contract call signed by the connected Hedera wallet and waits for the Mirror Node to report
+   * it. `payableTinybars` is sent as msg.value (tinybars on Hedera).
    */
   callContract: (args: {
     to: string;
@@ -34,10 +42,6 @@ type HederaWallet = {
 };
 
 const HederaWalletContext = createContext<HederaWallet | null>(null);
-
-// Remembers that this browser had a Hedera wallet session, so the connector is only started on load
-// when there is a session to restore.
-const SESSION_FLAG = "reserve.hederaWallet";
 
 const chainId: number = scaffoldConfig.targetNetworks[0].id;
 const isMainnet = chainId === hedera.id;
@@ -71,116 +75,113 @@ async function waitForContractResult(transactionId: string): Promise<MirrorContr
   throw new Error(`Transaction ${transactionId} was sent, but the Mirror Node has not reported it yet.`);
 }
 
+type Loaded = { appKit: AppKit; hederaProvider: HederaProvider; namespace: typeof hederaNamespace };
+
+let appKitPromise: Promise<Loaded> | null = null;
+
+/** Creates AppKit once per page load. */
+function loadAppKit() {
+  if (!appKitPromise) {
+    appKitPromise = (async () => {
+      const [{ createAppKit }, hwc] = await Promise.all([
+        import("@reown/appkit/react"),
+        import("@hashgraph/hedera-wallet-connect"),
+      ]);
+      const projectId = scaffoldConfig.walletConnectProjectId;
+      const origin = window.location.origin;
+      const metadata = {
+        name: "The Reserve",
+        description: "An HTS token that can't be minted beyond its HBAR reserves.",
+        url: origin,
+        icons: [`${origin}/icon-512.png`],
+      };
+      const nativeNetwork = isMainnet
+        ? hwc.HederaChainDefinition.Native.Mainnet
+        : hwc.HederaChainDefinition.Native.Testnet;
+      const hederaAdapter = new hwc.HederaAdapter({
+        projectId,
+        networks: [nativeNetwork],
+        namespace: hwc.hederaNamespace,
+      });
+      const hederaProvider = await hwc.HederaProvider.init({ projectId, metadata });
+      const appKit = createAppKit({
+        adapters: [wagmiAdapter, hederaAdapter],
+        // Hedera's provider extends WalletConnect's UniversalProvider; the types differ only in detail.
+        universalProvider: hederaProvider as unknown as Parameters<typeof createAppKit>[0]["universalProvider"],
+        projectId,
+        metadata,
+        networks: [enabledChains[0], ...enabledChains.slice(1), nativeNetwork] as Parameters<
+          typeof createAppKit
+        >[0]["networks"],
+        features: { analytics: false, email: false, socials: false, onramp: false, swaps: false, send: false },
+        // Coinbase Wallet does not support Hedera; its SDK would only add a telemetry script.
+        enableCoinbase: false,
+        // Hedera wallets first in the list: Kabila, HashPack (WalletConnect explorer IDs).
+        featuredWalletIds: [
+          "c40c24b39500901a330a025938552d70def4890fffe9bd315046bd33a2ece24d",
+          "a29498d225fa4b13468ff4d6cf4ae0ea4adcbd95f07ce8a843a1dee10b632f3f",
+        ],
+        themeVariables: { "--w3m-accent": "#8259ef", "--w3m-border-radius-master": "2px" },
+      });
+      return { appKit, hederaProvider, namespace: hwc.hederaNamespace };
+    })();
+  }
+  return appKitPromise;
+}
+
 export const HederaWalletProvider = ({ children }: { children: ReactNode }) => {
-  const connectorRef = useRef<Promise<DAppConnector> | null>(null);
+  const { resolvedTheme } = useTheme();
+  const loaded = useRef<Loaded | null>(null);
+  const [ready, setReady] = useState(false);
   const [accountId, setAccountId] = useState<string>();
   const [evmAddress, setEvmAddress] = useState<`0x${string}`>();
-  const [connecting, setConnecting] = useState(false);
 
-  const adopt = useCallback(async (connector: DAppConnector) => {
-    const signer = connector.signers[0];
-    if (!signer) {
-      setAccountId(undefined);
-      setEvmAddress(undefined);
-      return;
-    }
-    const id = signer.getAccountId().toString();
-    setAccountId(id);
-    setEvmAddress(await evmAddressOf(id));
-    try {
-      localStorage.setItem(SESSION_FLAG, "1");
-    } catch {}
-  }, []);
-
-  const getConnector = useCallback(() => {
-    if (!connectorRef.current) {
-      connectorRef.current = (async () => {
-        // Loaded on demand: the connector and the Hedera SDK only reach visitors who use them.
-        const [{ DAppConnector }, shared, { LedgerId }] = await Promise.all([
-          import("@hashgraph/hedera-wallet-connect/dist/lib/dapp"),
-          import("@hashgraph/hedera-wallet-connect/dist/lib/shared"),
-          import("@hiero-ledger/sdk"),
-        ]);
-        const origin = window.location.origin;
-        const connector = new DAppConnector(
-          {
-            name: "The Reserve",
-            description: "An HTS token that can't be minted beyond its HBAR reserves.",
-            url: origin,
-            icons: [`${origin}/icon-512.png`],
-          },
-          isMainnet ? LedgerId.MAINNET : LedgerId.TESTNET,
-          scaffoldConfig.walletConnectProjectId,
-          Object.values(shared.HederaJsonRpcMethod),
-          [shared.HederaSessionEvent.ChainChanged, shared.HederaSessionEvent.AccountsChanged],
-          [isMainnet ? shared.HederaChainId.Mainnet : shared.HederaChainId.Testnet],
-        );
-        await connector.init({ logger: "error" });
-        connector.walletConnectClient?.on("session_delete", () => {
-          setAccountId(undefined);
-          setEvmAddress(undefined);
-          try {
-            localStorage.removeItem(SESSION_FLAG);
-          } catch {}
-        });
-        return connector;
-      })();
-    }
-    return connectorRef.current;
-  }, []);
-
-  // Restore a session from an earlier visit.
   useEffect(() => {
-    let had = false;
-    try {
-      had = localStorage.getItem(SESSION_FLAG) === "1";
-    } catch {}
-    if (had) getConnector().then(adopt).catch(console.error);
-  }, [adopt, getConnector]);
+    let cancelled = false;
+    loadAppKit()
+      .then(result => {
+        if (cancelled) return;
+        loaded.current = result;
+        setReady(true);
+        // Only the Hedera-native account is tracked here; EVM accounts come from wagmi.
+        result.appKit.subscribeAccount(account => {
+          // caipAddress looks like "hedera:testnet:0.0.12345".
+          const id = account.isConnected ? account.caipAddress?.split(":").pop() : undefined;
+          setAccountId(id);
+          setEvmAddress(undefined);
+          if (id) evmAddressOf(id).then(setEvmAddress).catch(console.error);
+        }, result.namespace);
+      })
+      .catch(console.error);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const connect = useCallback(async () => {
-    setConnecting(true);
-    try {
-      const connector = await getConnector();
-      await connector.openModal();
-      await adopt(connector);
-    } finally {
-      setConnecting(false);
+  useEffect(() => {
+    if (ready && resolvedTheme) loaded.current?.appKit.setThemeMode(resolvedTheme === "dark" ? "dark" : "light");
+  }, [ready, resolvedTheme]);
+
+  const callContract = useCallback<HederaWallet["callContract"]>(async ({ to, data, gas, payableTinybars }) => {
+    const hederaProvider = loaded.current?.hederaProvider;
+    const topic = hederaProvider?.session?.topic;
+    const signer = topic ? hederaProvider?.nativeProvider?.getSigner(topic) : undefined;
+    if (!signer) throw new Error("No Hedera wallet connected");
+    const { ContractExecuteTransaction, ContractId, Hbar, HbarUnit } = await import("@hiero-ledger/sdk");
+    const tx = new ContractExecuteTransaction()
+      .setContractId(ContractId.fromString(await contractIdOf(to)))
+      .setGas(Number(gas))
+      .setFunctionParameters(data);
+    if (payableTinybars && payableTinybars > 0n) {
+      tx.setPayableAmount(Hbar.from(payableTinybars.toString(), HbarUnit.Tinybar));
     }
-  }, [adopt, getConnector]);
-
-  const disconnect = useCallback(async () => {
-    const connector = await getConnector();
-    await connector.disconnectAll().catch(() => undefined);
-    setAccountId(undefined);
-    setEvmAddress(undefined);
-    try {
-      localStorage.removeItem(SESSION_FLAG);
-    } catch {}
-  }, [getConnector]);
-
-  const callContract = useCallback<HederaWallet["callContract"]>(
-    async ({ to, data, gas, payableTinybars }) => {
-      const connector = await getConnector();
-      const signer = connector.signers[0];
-      if (!signer) throw new Error("No Hedera wallet connected");
-      const { ContractExecuteTransaction, ContractId, Hbar, HbarUnit } = await import("@hiero-ledger/sdk");
-      const tx = new ContractExecuteTransaction()
-        .setContractId(ContractId.fromString(await contractIdOf(to)))
-        .setGas(Number(gas))
-        .setFunctionParameters(data);
-      if (payableTinybars && payableTinybars > 0n) {
-        tx.setPayableAmount(Hbar.from(payableTinybars.toString(), HbarUnit.Tinybar));
-      }
-      await tx.freezeWithSigner(signer);
-      const response = await tx.executeWithSigner(signer);
-      return waitForContractResult(response.transactionId.toString());
-    },
-    [getConnector],
-  );
+    await tx.freezeWithSigner(signer);
+    const response = await tx.executeWithSigner(signer);
+    return waitForContractResult(response.transactionId.toString());
+  }, []);
 
   return (
-    <HederaWalletContext.Provider value={{ accountId, evmAddress, connecting, connect, disconnect, callContract }}>
+    <HederaWalletContext.Provider value={{ ready, accountId, evmAddress, callContract }}>
       {children}
     </HederaWalletContext.Provider>
   );

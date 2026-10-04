@@ -61,5 +61,8 @@
   },
   "overrides": {
     "@coinbase/cdp-sdk": "1.44.1"
+  },
+  "resolutions": {
+    "@reown/appkit-adapter-wagmi/@wagmi/connectors": "6.2.0"
   }
 }
