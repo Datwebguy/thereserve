@@ -49,6 +49,25 @@ yarn start            # terminal 3: http://localhost:3000
 
 With npm, use `npm run <script>` in place of `yarn <script>` (the CLI rewrites the scripts for you). If you reinstall by hand, use `npm install --legacy-peer-deps` as the CLI does. The root `package.json` pins `@coinbase/cdp-sdk` to 1.44.1 through npm `overrides`: newer releases (pulled in by wallet connectors) import optional `@x402/*` packages that npm does not install, which breaks the Next.js build. Yarn already resolves 1.44.1 from `yarn.lock`.
 
+## Use the live app
+
+The app runs on Hedera testnet at https://thereservehome.vercel.app. Everything on it is read from the deployed contracts and the Mirror Node.
+
+**You need** a Hedera testnet account in a wallet such as Kabila or HashPack, with some testnet HBAR from the [Hedera faucet](https://portal.hedera.com). EVM wallets such as MetaMask connect through their browser extension or in-app browser.
+
+1. **Connect.** Choose *Connect Wallet*, pick Kabila or HashPack, and approve on your phone. Pick a testnet account; mainnet is not offered.
+2. **Open `/vault`.** It shows your collateral, your debt, your ratio and the most you can mint.
+3. **Associate the token (once).** A Hedera account must opt in before it can hold a token. Approve the transaction in your wallet.
+4. **Deposit HBAR.** This is your collateral. It is valued with Chainlink's HBAR/USD price, read through PriceGuard.
+5. **Mint rUSD.** You can mint up to the amount the page shows. At the default 150% minimum ratio, $150 of HBAR backs $100 of rUSD. Asking for more is refused with a reason code and mints nothing; the refusal is still logged.
+6. **Burn rUSD** at any time. Burning never depends on the price, so you can always reduce your debt. The button sends two transactions: an approval so The Reserve can take the tokens, then the burn.
+7. **Withdraw HBAR** you don't need. A withdrawal that would take you below the ratio is refused.
+8. **Check the record.** Each result links to HashScan. `/log` lists every event posted to the HCS audit topic, newest first.
+
+Other pages: `/` shows the reserve totals and whether the price guard currently accepts the feed. `/guard` is a labelled simulation of the guard's checks (stale price, malformed price, large jump); it never shows made-up prices as live.
+
+To end a session, open your account in the Connect Wallet button and choose *Disconnect*.
+
 ## Prerequisites
 
 - **Node.js 20.18.3 or later**
