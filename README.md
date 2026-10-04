@@ -78,6 +78,11 @@ Open http://localhost:3000. The app's burner wallet works on the local chain; us
 | `/api/health` | `{"status":"ok"}` |
 | `/debug` | Scaffold-HBAR's contract debugger |
 
+**Connect Wallet** offers two kinds of wallet:
+
+- **Hedera wallet** (Kabila, HashPack and others) connects through Hedera's own WalletConnect namespace, using [`@hashgraph/hedera-wallet-connect`](https://github.com/hashgraph/hedera-wallet-connect). It works with any Hedera account. The vault sends the same contract calls as Hedera transactions signed by the wallet, and reads their outcome from the Mirror Node.
+- **EVM wallet** (MetaMask and other WalletConnect wallets) connects through the EIP-155 namespace. Hedera wallets only allow this for ECDSA accounts created with an EVM alias, which is why they need the Hedera option.
+
 ## Deploy to testnet
 
 ```bash
