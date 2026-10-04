@@ -67,7 +67,7 @@ yarn hardhat:demo --network localhost # optional: deposit, a mint, and a refused
 yarn start                            # terminal 3
 ```
 
-Open http://localhost:3000. The app's burner wallet works on the local chain; use the HBAR faucet button at the bottom left to fund it. On the local fork the emulator does not model token association, so the vault skips that step there.
+Open http://localhost:3000. The app's burner wallet works on the local chain; use the HBAR faucet button at the bottom of the page to fund it. On the local fork the emulator does not model token association, so the vault skips that step there.
 
 | Page | What it shows |
 |---|---|
@@ -77,6 +77,11 @@ Open http://localhost:3000. The app's burner wallet works on the local chain; us
 | `/guard` | Price guard simulator. Enter a price, its age and a previous price; the deployed guard says whether it would accept it. **Labelled as a simulation; it never shows made-up prices as live** |
 | `/api/health` | `{"status":"ok"}` |
 | `/debug` | Scaffold-HBAR's contract debugger |
+
+**Connect Wallet** opens [Reown AppKit](https://docs.reown.com/appkit/overview), WalletConnect's own modal with its full wallet list, with Kabila and HashPack shown first. Two adapters sit behind it:
+
+- **Hedera wallets** (Kabila, HashPack and others) connect through Hedera's own WalletConnect namespace, using the `HederaAdapter` from [`@hashgraph/hedera-wallet-connect`](https://github.com/hashgraph/hedera-wallet-connect). This works with any Hedera account. The vault sends the same contract calls as Hedera transactions signed by the wallet, and reads their outcome from the Mirror Node.
+- **EVM wallets** (MetaMask and others) connect through AppKit's wagmi adapter, which also backs the app's contract reads. Hedera wallets only allow this EIP-155 route for ECDSA accounts created with an EVM alias, which is why they need the Hedera adapter.
 
 ## Deploy to testnet
 

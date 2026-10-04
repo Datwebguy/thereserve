@@ -12,7 +12,7 @@ import {
   DocumentTextIcon,
   WalletIcon,
 } from "@heroicons/react/24/outline";
-import { RainbowKitCustomConnectButton } from "~~/components/scaffold-hbar";
+import { ConnectWallet } from "~~/components/ConnectWallet";
 import { useOutsideClick } from "~~/hooks/scaffold-hbar";
 
 type HeaderMenuLink = {
@@ -120,7 +120,7 @@ export const Header = () => {
         </ul>
       </div>
       <div className="navbar-end grow mr-4">
-        <RainbowKitCustomConnectButton />
+        <ConnectWallet />
       </div>
     </div>
   );

@@ -40,6 +40,7 @@
     "logger:test": "yarn workspace @sh/logger test",
     "next:build": "yarn workspace @sh/nextjs build",
     "next:check-types": "yarn workspace @sh/nextjs check-types",
+    "next:test": "yarn workspace @sh/nextjs test",
     "next:dev": "yarn workspace @sh/nextjs dev",
     "next:format": "yarn workspace @sh/nextjs format",
     "next:lint": "yarn workspace @sh/nextjs lint",
@@ -48,7 +49,7 @@
     "postinstall": "husky",
     "precommit": "lint-staged",
     "start": "yarn next:dev",
-    "test": "yarn hardhat:test && yarn logger:test"
+    "test": "yarn hardhat:test && yarn logger:test && yarn next:test"
   },
   "packageManager": "yarn@3.2.3",
   "devDependencies": {
@@ -60,5 +61,8 @@
   },
   "overrides": {
     "@coinbase/cdp-sdk": "1.44.1"
+  },
+  "resolutions": {
+    "@reown/appkit-adapter-wagmi/@wagmi/connectors": "6.2.0"
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { type ReactNode } from "react";
-import { type Abi, type TransactionReceipt, parseEventLogs } from "viem";
+import { type Abi, type Hex, type Log, type TransactionReceipt, parseEventLogs } from "viem";
 import { REASONS, hashscanTx } from "~~/utils/reserve";
 
 export const Card = ({
@@ -46,16 +46,20 @@ export type Outcome = {
   link?: string;
 };
 
+/** The parts of a log that event decoding reads: what both EVM receipts and the Mirror Node provide. */
+type EventLog = { address: Hex; topics: readonly Hex[]; data: Hex };
+
 /**
- * Reads what a Reserve transaction actually did. A refused mint or withdraw does not revert (so the
- * refusal stays on-chain for the audit log), which means the wallet reports success either way.
+ * Reads what a Reserve transaction actually did from its logs. A refused mint or withdraw does not
+ * revert (so the refusal stays on-chain for the audit log), which means the wallet reports success
+ * either way.
  */
-export function describeReceipt(abi: Abi, receipt: TransactionReceipt, chainId: number): Outcome {
-  const events = parseEventLogs({ abi, logs: receipt.logs }) as unknown as {
+export function describeLogs(abi: Abi, logs: readonly EventLog[], hash: string, chainId: number): Outcome {
+  const events = parseEventLogs({ abi, logs: logs as unknown as Log[] }) as unknown as {
     eventName: string;
     args: Record<string, unknown>;
   }[];
-  const link = hashscanTx(chainId, receipt.transactionHash);
+  const link = hashscanTx(chainId, hash);
   const rejected = events.find(e => e.eventName === "MintRejected" || e.eventName === "WithdrawRejected");
   if (rejected) {
     const code = Number(rejected.args.reasonCode);
@@ -63,13 +67,17 @@ export function describeReceipt(abi: Abi, receipt: TransactionReceipt, chainId: 
       kind: "rejected",
       title: `${rejected.eventName === "MintRejected" ? "Mint" : "Withdraw"} refused: ${REASONS[code]?.title ?? code} (code ${code})`,
       detail: REASONS[code]?.detail,
-      hash: receipt.transactionHash,
+      hash,
       link,
     };
   }
   const names = events.map(e => e.eventName).join(", ");
-  return { kind: "success", title: names ? `Done: ${names}` : "Done", hash: receipt.transactionHash, link };
+  return { kind: "success", title: names ? `Done: ${names}` : "Done", hash, link };
 }
+
+/** describeLogs for a receipt from an EVM wallet. */
+export const describeReceipt = (abi: Abi, receipt: TransactionReceipt, chainId: number): Outcome =>
+  describeLogs(abi, receipt.logs as unknown as EventLog[], receipt.transactionHash, chainId);
 
 export const OutcomeBanner = ({ outcome }: { outcome?: Outcome }) => {
   if (!outcome) return null;

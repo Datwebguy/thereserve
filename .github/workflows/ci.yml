@@ -43,6 +43,9 @@ jobs:
       - name: Logger tests
         run: yarn logger:test
 
+      - name: Frontend tests
+        run: yarn next:test
+
       - name: Build
         run: yarn build
 

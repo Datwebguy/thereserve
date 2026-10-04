@@ -3,8 +3,16 @@
 import { useState } from "react";
 import type { NextPage } from "next";
 import type { Abi, TransactionReceipt } from "viem";
-import { useAccount, useReadContract, useWriteContract } from "wagmi";
-import { Card, NotDeployed, type Outcome, OutcomeBanner, Stat, describeReceipt } from "~~/components/reserve";
+import { useReadContract, useWriteContract } from "wagmi";
+import {
+  Card,
+  NotDeployed,
+  type Outcome,
+  OutcomeBanner,
+  Stat,
+  describeLogs,
+  describeReceipt,
+} from "~~/components/reserve";
 import {
   useDeployedContractInfo,
   useHederaAccountId,
@@ -13,6 +21,9 @@ import {
   useTargetNetwork,
   useTransactor,
 } from "~~/hooks/scaffold-hbar";
+import { useReserveAccount } from "~~/hooks/useReserveAccount";
+import { useHederaWallet } from "~~/services/hedera/HederaWalletProvider";
+import { type MirrorContractResult, callData, mirrorLogsToViem } from "~~/utils/hederaWallet";
 import {
   formatHbar,
   formatPrice,
@@ -25,6 +36,7 @@ import {
   parseHbarToTinybars,
   parseToken,
 } from "~~/utils/reserve";
+import { notification } from "~~/utils/scaffold-hbar";
 
 /**
  * Explicit gas limits. The relay's estimates for calls into the HTS system contract can come in low,
@@ -88,7 +100,8 @@ const AmountForm = ({
 };
 
 const Vault: NextPage = () => {
-  const { address } = useAccount();
+  const { address, kind } = useReserveAccount();
+  const hedera = useHederaWallet();
   const { targetNetwork } = useTargetNetwork();
   const chainId = targetNetwork.id;
   const { data: reserveInfo, isLoading } = useDeployedContractInfo({ contractName: "TheReserve" });
@@ -146,6 +159,44 @@ const Vault: NextPage = () => {
     refetchAssociated();
   };
 
+  /**
+   * Hedera-native wallets (Kabila, HashPack) sign Hedera transactions rather than EVM ones, so their
+   * calls go out as ContractExecuteTransactions: same contract, same function, same arguments.
+   */
+  const sendHedera = async ({
+    on,
+    functionName,
+    args = [],
+    hbar,
+    gas,
+  }: {
+    on: "reserve" | "token";
+    functionName: string;
+    args?: readonly unknown[];
+    hbar?: string;
+    gas: bigint;
+  }) => {
+    const abi = (on === "reserve" ? reserveInfo!.abi : htsTokenAbi) as Abi;
+    const to = on === "reserve" ? reserveInfo!.address : tokenAddress!;
+    const result = await hedera.callContract({
+      to,
+      data: callData(abi, functionName, args),
+      gas,
+      payableTinybars: hbar ? parseHbarToTinybars(hbar) : undefined,
+    });
+    if (result.result !== "SUCCESS")
+      throw new Error(`${functionName} failed: ${result.error_message || result.result}`);
+    return result;
+  };
+
+  const doneHedera = (result: MirrorContractResult) => {
+    if (reserveInfo) {
+      setOutcome(describeLogs(reserveInfo.abi as Abi, mirrorLogsToViem(result.logs), result.hash, chainId));
+    }
+    refetchBalance();
+    refetchAssociated();
+  };
+
   const run = async (name: string, fn: () => Promise<unknown>) => {
     setBusy(name);
     setOutcome(undefined);
@@ -153,6 +204,8 @@ const Vault: NextPage = () => {
       await fn();
     } catch (e) {
       console.error(e);
+      // EVM wallet errors are already shown by the transactor; Hedera wallet errors are shown here.
+      if (kind === "hedera") notification.error(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(undefined);
     }
@@ -223,17 +276,19 @@ const Vault: NextPage = () => {
                   className="btn btn-primary btn-sm w-fit"
                   disabled={!tokenAddress || !!busy}
                   onClick={() =>
-                    run("associate", () =>
-                      transactor(
-                        () =>
-                          writeToken({
-                            address: tokenAddress!,
-                            abi: htsTokenAbi,
-                            functionName: "associate",
-                            gas: GAS.associate,
-                          }),
-                        { onBlockConfirmation: done },
-                      ),
+                    run("associate", async () =>
+                      kind === "hedera"
+                        ? doneHedera(await sendHedera({ on: "token", functionName: "associate", gas: GAS.associate }))
+                        : transactor(
+                            () =>
+                              writeToken({
+                                address: tokenAddress!,
+                                abi: htsTokenAbi,
+                                functionName: "associate",
+                                gas: GAS.associate,
+                              }),
+                            { onBlockConfirmation: done },
+                          ),
                     )
                   }
                 >
@@ -252,11 +307,15 @@ const Vault: NextPage = () => {
                 busy={busy === "deposit"}
                 disabled={!!busy}
                 onSubmit={v =>
-                  run("deposit", () =>
-                    writeReserve(
-                      { functionName: "deposit", value: hbarToValue(v, chainId), gas: GAS.deposit },
-                      { onBlockConfirmation: done },
-                    ),
+                  run("deposit", async () =>
+                    kind === "hedera"
+                      ? doneHedera(
+                          await sendHedera({ on: "reserve", functionName: "deposit", hbar: v, gas: GAS.deposit }),
+                        )
+                      : writeReserve(
+                          { functionName: "deposit", value: hbarToValue(v, chainId), gas: GAS.deposit },
+                          { onBlockConfirmation: done },
+                        ),
                   )
                 }
               />
@@ -271,11 +330,20 @@ const Vault: NextPage = () => {
                 disabled={!!busy || !tokenAddress}
                 hint="If a rule blocks it, the transaction still succeeds but mints nothing, and the refusal is logged."
                 onSubmit={v =>
-                  run("mint", () =>
-                    writeReserve(
-                      { functionName: "mint", args: [parseToken(v)], gas: GAS.mint },
-                      { onBlockConfirmation: done },
-                    ),
+                  run("mint", async () =>
+                    kind === "hedera"
+                      ? doneHedera(
+                          await sendHedera({
+                            on: "reserve",
+                            functionName: "mint",
+                            args: [parseToken(v)],
+                            gas: GAS.mint,
+                          }),
+                        )
+                      : writeReserve(
+                          { functionName: "mint", args: [parseToken(v)], gas: GAS.mint },
+                          { onBlockConfirmation: done },
+                        ),
                   )
                 }
               />
@@ -292,6 +360,18 @@ const Vault: NextPage = () => {
                 onSubmit={v =>
                   run("burn", async () => {
                     const amount = parseToken(v);
+                    if (kind === "hedera") {
+                      await sendHedera({
+                        on: "token",
+                        functionName: "approve",
+                        args: [reserveInfo!.address, amount],
+                        gas: GAS.approve,
+                      });
+                      doneHedera(
+                        await sendHedera({ on: "reserve", functionName: "burn", args: [amount], gas: GAS.burn }),
+                      );
+                      return;
+                    }
                     await transactor(() =>
                       writeToken({
                         address: tokenAddress!,
@@ -319,11 +399,20 @@ const Vault: NextPage = () => {
                 disabled={!!busy}
                 hint="With no debt this always works. With debt, you must stay above the minimum ratio."
                 onSubmit={v =>
-                  run("withdraw", () =>
-                    writeReserve(
-                      { functionName: "withdraw", args: [parseHbarToTinybars(v)], gas: GAS.withdraw },
-                      { onBlockConfirmation: done },
-                    ),
+                  run("withdraw", async () =>
+                    kind === "hedera"
+                      ? doneHedera(
+                          await sendHedera({
+                            on: "reserve",
+                            functionName: "withdraw",
+                            args: [parseHbarToTinybars(v)],
+                            gas: GAS.withdraw,
+                          }),
+                        )
+                      : writeReserve(
+                          { functionName: "withdraw", args: [parseHbarToTinybars(v)], gas: GAS.withdraw },
+                          { onBlockConfirmation: done },
+                        ),
                   )
                 }
               />

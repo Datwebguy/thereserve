@@ -1,4 +1,3 @@
-import "@rainbow-me/rainbowkit/styles.css";
 import "@scaffold-hbar-ui/components/styles.css";
 import { ScaffoldHbarAppWithProviders } from "~~/components/ScaffoldHbarAppWithProviders";
 import { ThemeProvider } from "~~/components/ThemeProvider";
