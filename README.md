@@ -368,4 +368,4 @@ See [`AGENTS.md`](AGENTS.md) for the rules coding agents must keep when changing
 
 ## Licence
 
-[MIT](LICENCE). Built on [Scaffold-HBAR](https://github.com/buidler-labs/scaffold-hbar).
+[MIT](LICENSE). Built on [Scaffold-HBAR](https://github.com/buidler-labs/scaffold-hbar).

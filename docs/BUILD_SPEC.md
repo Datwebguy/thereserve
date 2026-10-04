@@ -288,17 +288,7 @@ State these in the README under "Limits".
 
 ---
 
-## 13. Demo video (under 3 minutes)
-
-1. **The problem (20 s):** issuing a backed token safely is hard, and bad prices cost a Hedera lender about $9M this year.
-2. **Deposit and mint (40 s):** associate, deposit HBAR, mint within the ratio. Show the HashScan link.
-3. **The refusal (40 s):** try to mint above the ratio. It's rejected, and the HCS log shows the attempt with reason code 1.
-4. **The guard (40 s):** in the simulator, a stale price and a 50% jump are both refused, each with its reason. Then point to the tests that prove the same against the real contract.
-5. **For developers (30 s):** one `npm create` command, the README, `AGENTS.md`, and where to plug in a Proof of Reserve feed later.
-
----
-
-## 14. Verify before building
+## 13. Verify before building
 
 | Item | Why |
 |---|---|
