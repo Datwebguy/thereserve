@@ -33,8 +33,12 @@ export const wagmiConnectors = () => {
     });
   }
 
+  // Shown by wallets when they ask the user to connect.
   return connectorsForWallets(walletGroups, {
-    appName: "scaffold-hbar",
+    appName: "The Reserve",
+    appDescription: "An HTS token that can't be minted beyond its HBAR reserves.",
+    appUrl: window.location.origin,
+    appIcon: `${window.location.origin}/icon-512.png`,
     projectId: scaffoldConfig.walletConnectProjectId,
   });
 };
