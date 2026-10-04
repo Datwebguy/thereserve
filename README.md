@@ -101,9 +101,9 @@ The logger reads from the start of the contract's history, so it also posts even
 
 ### Keep the logger running
 
-The logger has to keep running for new events to reach the topic. `packages/logger/Dockerfile` builds it alone (build from the repository root), and `packages/logger/railway.json` deploys that image on [Railway](https://railway.com):
+The logger has to keep running for new events to reach the topic. `packages/logger/Dockerfile` builds it alone, with the repository root as build context. On [Railway](https://railway.com):
 
-1. Create a service from this GitHub repository and set its config file path to `packages/logger/railway.json`.
+1. Create a service from this GitHub repository. In its settings, set the Dockerfile path to `packages/logger/Dockerfile` and the restart policy to Always. Leave the root directory empty. Without the Dockerfile path, Railway builds the repository's default app, the frontend.
 2. Set `HEDERA_NETWORK`, `RESERVE_CONTRACT`, `HCS_TOPIC_ID`, `LOGGER_OPERATOR_ID` and `LOGGER_OPERATOR_KEY` as service variables. Use the topic the first run created, or a restart creates a new one.
 
 Each start reads the topic's latest messages to see what was already posted, so restarts and redeploys never post an event twice and no volume is needed.
