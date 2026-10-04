@@ -114,6 +114,21 @@ function loadAppKit() {
         );
         return connect({ ...params, namespaces: undefined, optionalNamespaces: hederaOnly });
       };
+      // AppKit clears the account only when the adapter emits "disconnect", which Hedera's adapter
+      // does not do for WalletConnect sessions, so Disconnect appeared to do nothing. End the session
+      // (locally too, if the relay call fails or hangs) and emit the event.
+      const disconnect = hederaAdapter.disconnect.bind(hederaAdapter);
+      hederaAdapter.disconnect = async params => {
+        const result = await Promise.race([
+          disconnect(params),
+          new Promise<{ connections: [] }>(resolve => setTimeout(() => resolve({ connections: [] }), 5_000)),
+        ]);
+        // cleanup() is private in the types; it only forgets the session locally.
+        const provider = hederaProvider as unknown as { session?: unknown; cleanup: () => Promise<void> };
+        if (provider.session) await provider.cleanup().catch(console.error);
+        (hederaAdapter as unknown as { emit: (event: "disconnect") => void }).emit("disconnect");
+        return result;
+      };
       const appKit = createAppKit({
         adapters: [wagmiAdapter, hederaAdapter],
         // Hedera's provider extends WalletConnect's UniversalProvider; the types differ only in detail.
