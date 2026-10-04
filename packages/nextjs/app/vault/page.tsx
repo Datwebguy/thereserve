@@ -40,7 +40,7 @@ import { notification } from "~~/utils/scaffold-hbar";
 
 /**
  * Explicit gas limits. The relay's estimates for calls into the HTS system contract can come in low,
- * and Hedera refunds at most 20% of unused gas, so these are set close to what each call needs.
+ * because that gas follows a USD price plus a surcharge. Unused gas is refunded, so these err on the high side.
  */
 const GAS = {
   deposit: 200_000n,
