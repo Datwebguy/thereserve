@@ -303,7 +303,7 @@ One message per state change keeps costs predictable; the logger never posts pag
 - **Supply key and treasury.** Both are TheReserve. The token is created from the contract (see [Architecture](#architecture)) because a contract cannot sign an SDK transaction as treasury.
 - **System contract response codes.** Every HTS call (`createFungibleToken`, `mintToken`, `transferToken`, `transferFrom`, `burnToken`) returns a response code. TheReserve checks each one and reverts with `HtsCallFailed(code)` on anything but `SUCCESS` (22), apart from 184 on mint, which is handled as above.
 - **Burning takes an allowance.** `burn` pulls tokens with the HTS `transferFrom`, so the user first calls ERC-20 `approve(TheReserve, amount)` on the token. The vault does both.
-- **Gas limits.** Relay gas estimates for HTS calls can come in low, and Hedera charges at least 80% of the gas limit, so the UI and scripts set explicit limits close to what each call needs.
+- **Gas limits.** Relay gas estimates for HTS calls can come in low: system contract gas is derived from a USD price at a set conversion rate plus a 20% surcharge, so it moves with the exchange rate. The UI and scripts set explicit limits. Since [HIP-1249](https://hips.hedera.com/hip/hip-1249) Hedera charges the gas actually used and refunds the rest, so a generous limit costs nothing extra.
 
 ## Tests
 
