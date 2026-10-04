@@ -75,7 +75,12 @@ async function waitForContractResult(transactionId: string): Promise<MirrorContr
   throw new Error(`Transaction ${transactionId} was sent, but the Mirror Node has not reported it yet.`);
 }
 
-type Loaded = { appKit: AppKit; hederaProvider: HederaProvider; namespace: typeof hederaNamespace };
+type Loaded = {
+  appKit: AppKit;
+  hederaProvider: HederaProvider;
+  namespace: typeof hederaNamespace;
+  nativeNetwork: Parameters<AppKit["switchNetwork"]>[0];
+};
 
 let appKitPromise: Promise<Loaded> | null = null;
 
@@ -95,9 +100,12 @@ function loadAppKit() {
         url: origin,
         icons: [`${origin}/icon-512.png`],
       };
-      const nativeNetwork = isMainnet
+      // The EVM and the native Hedera networks share a name, which showed up as two identical
+      // "Hedera Testnet" rows in AppKit's Switch Network dialog. Name the native one for what it is.
+      const baseNative = isMainnet
         ? hwc.HederaChainDefinition.Native.Mainnet
         : hwc.HederaChainDefinition.Native.Testnet;
+      const nativeNetwork = { ...baseNative, name: `${baseNative.name} (Hedera wallets)` } as typeof baseNative;
       const hederaAdapter = new hwc.HederaAdapter({
         projectId,
         networks: [nativeNetwork],
@@ -148,7 +156,12 @@ function loadAppKit() {
         ],
         themeVariables: { "--w3m-accent": "#8259ef", "--w3m-border-radius-master": "2px" },
       });
-      return { appKit, hederaProvider, namespace: hwc.hederaNamespace };
+      return {
+        appKit,
+        hederaProvider,
+        namespace: hwc.hederaNamespace,
+        nativeNetwork: nativeNetwork as Loaded["nativeNetwork"],
+      };
     })();
   }
   return appKitPromise;
@@ -174,7 +187,13 @@ export const HederaWalletProvider = ({ children }: { children: ReactNode }) => {
           const id = account.isConnected ? account.caipAddress?.split(":").pop() : undefined;
           setAccountId(id);
           setEvmAddress(undefined);
-          if (id) evmAddressOf(id).then(setEvmAddress).catch(console.error);
+          if (!id) return;
+          evmAddressOf(id).then(setEvmAddress).catch(console.error);
+          // A Hedera wallet approves only the native network, but AppKit starts on the EVM one and would
+          // open "Switch Network" on first connect. Move it to the network the wallet approved.
+          Promise.resolve(result.appKit.switchNetwork(result.nativeNetwork))
+            .then(() => result.appKit.close())
+            .catch(console.error);
         }, result.namespace);
       })
       .catch(console.error);
