@@ -104,6 +104,16 @@ function loadAppKit() {
         namespace: hwc.hederaNamespace,
       });
       const hederaProvider = await hwc.HederaProvider.init({ projectId, metadata });
+      // WalletConnect sessions ask only for the hedera namespace. If the proposal also lists eip155,
+      // Hedera wallets such as Kabila pick EIP-155, where only ECDSA accounts with an EVM alias can be
+      // used. EVM wallets connect through their browser instead (MetaMask extension or in-app browser).
+      const connect = hederaProvider.connect.bind(hederaProvider);
+      hederaProvider.connect = params => {
+        const hederaOnly = Object.fromEntries(
+          Object.entries(params.optionalNamespaces ?? {}).filter(([namespace]) => namespace === hwc.hederaNamespace),
+        );
+        return connect({ ...params, namespaces: undefined, optionalNamespaces: hederaOnly });
+      };
       const appKit = createAppKit({
         adapters: [wagmiAdapter, hederaAdapter],
         // Hedera's provider extends WalletConnect's UniversalProvider; the types differ only in detail.
