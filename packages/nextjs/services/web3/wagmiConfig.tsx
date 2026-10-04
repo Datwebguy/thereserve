@@ -3,6 +3,7 @@ import type { AppKitNetwork } from "@reown/appkit/networks";
 import { burner } from "burner-connector";
 import { type Transport, fallback, http } from "viem";
 import * as chains from "viem/chains";
+import type { CreateConnectorFn } from "wagmi";
 import scaffoldConfig, { ScaffoldConfig } from "~~/scaffold.config";
 
 const { targetNetworks } = scaffoldConfig;
@@ -36,7 +37,8 @@ export const wagmiAdapter = new WagmiAdapter({
   ssr: true,
   transports,
   pollingInterval: scaffoldConfig.pollingInterval,
-  connectors: scaffoldConfig.enableBurnerWallet && servedLocally ? [burner()] : [],
+  // burner-connector bundles its own viem, so its connector type differs only in that copy's types.
+  connectors: scaffoldConfig.enableBurnerWallet && servedLocally ? [burner() as unknown as CreateConnectorFn] : [],
 });
 
 export const wagmiConfig = wagmiAdapter.wagmiConfig;

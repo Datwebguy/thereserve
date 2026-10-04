@@ -38,7 +38,7 @@ const scaffoldConfig = {
     [chains.hederaTestnet.id]: process.env.NEXT_PUBLIC_HEDERA_TESTNET_RPC_URL || "https://testnet.hashio.io/api",
   },
 
-  walletConnectProjectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || "3a8170812b534d0ff9d794f19a901d64",
+  walletConnectProjectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || "5e0237c8b46078873a253229145e1409",
 } as const satisfies ScaffoldConfig;
 
 export default scaffoldConfig;
