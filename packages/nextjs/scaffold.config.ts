@@ -21,7 +21,8 @@ const hederaLocalFork = {
   },
 } as const satisfies chains.Chain;
 
-const targetNetworks = [chains.hederaTestnet, chains.hedera, hederaLocalFork] as const satisfies readonly [
+// The Reserve is deployed on Hedera testnet only, so mainnet is not offered.
+const targetNetworks = [chains.hederaTestnet, hederaLocalFork] as const satisfies readonly [
   chains.Chain,
   ...chains.Chain[],
 ];
