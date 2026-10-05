@@ -7,7 +7,12 @@ import { useTheme } from "next-themes";
 import { hedera } from "viem/chains";
 import scaffoldConfig from "~~/scaffold.config";
 import { enabledChains, wagmiAdapter } from "~~/services/web3/wagmiConfig";
-import { type MirrorContractResult, entityIdFromLongZero, toMirrorTransactionId } from "~~/utils/hederaWallet";
+import {
+  type MirrorContractResult,
+  entityIdFromLongZero,
+  needsNetworkSwitch,
+  toMirrorTransactionId,
+} from "~~/utils/hederaWallet";
 import { mirrorNodeUrl } from "~~/utils/reserve";
 
 /**
@@ -172,6 +177,7 @@ function loadAppKit() {
 export const HederaWalletProvider = ({ children }: { children: ReactNode }) => {
   const { resolvedTheme } = useTheme();
   const loaded = useRef<Loaded | null>(null);
+  const switchedFor = useRef<string | undefined>(undefined);
   const [ready, setReady] = useState(false);
   const [accountId, setAccountId] = useState<string>();
   const [evmAddress, setEvmAddress] = useState<`0x${string}`>();
@@ -197,10 +203,21 @@ export const HederaWalletProvider = ({ children }: { children: ReactNode }) => {
             const id = account.isConnected ? account.caipAddress?.split(":").pop() : undefined;
             setAccountId(id);
             setEvmAddress(undefined);
-            if (!id) return;
+            if (!id) {
+              switchedFor.current = undefined;
+              return;
+            }
             evmAddressOf(id).then(setEvmAddress).catch(console.error);
             // A Hedera wallet approves only the native network, but AppKit starts on the EVM one and would
-            // open "Switch Network" on first connect. Move it to the network the wallet approved.
+            // open "Switch Network" on first connect. Move it to the network the wallet approved, once per
+            // account: this callback fires on every account update, and a restored session on page load.
+            const nativeId = (result.nativeNetwork as { caipNetworkId?: string }).caipNetworkId;
+            const currentId = (
+              result.appKit.getCaipNetwork?.(result.namespace) as { caipNetworkId?: string } | undefined
+            )?.caipNetworkId;
+            const needed = !!nativeId && needsNetworkSwitch(switchedFor.current, id, currentId, nativeId);
+            switchedFor.current = id;
+            if (!needed) return;
             Promise.resolve(result.appKit.switchNetwork(result.nativeNetwork))
               .then(() => result.appKit.close())
               .catch(console.error);
