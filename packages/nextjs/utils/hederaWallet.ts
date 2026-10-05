@@ -56,3 +56,17 @@ function hexToBytes(hex: string): Uint8Array {
   for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
   return bytes;
 }
+
+/**
+ * Whether AppKit has to be moved to the native Hedera network for a connected Hedera account. AppKit reports
+ * account changes many times per connection and again for a session restored on page load, so this is true
+ * only the first time an account is seen, and only if the wallet is not already on the native network.
+ */
+export function needsNetworkSwitch(
+  handledAccountId: string | undefined,
+  accountId: string,
+  currentNetworkId: string | undefined,
+  nativeNetworkId: string,
+): boolean {
+  return handledAccountId !== accountId && currentNetworkId !== nativeNetworkId;
+}

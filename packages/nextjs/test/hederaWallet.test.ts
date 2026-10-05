@@ -8,6 +8,7 @@ import {
   callData,
   entityIdFromLongZero,
   mirrorLogsToViem,
+  needsNetworkSwitch,
   toMirrorTransactionId,
 } from "~~/utils/hederaWallet";
 import { htsTokenAbi } from "~~/utils/reserve";
@@ -64,4 +65,15 @@ test("a refused mint read from the Mirror Node is reported as refused", () => {
   assert.equal(outcome.kind, "rejected");
   assert.match(outcome.title, /^Mint refused: .+ \(code 1\)$/);
   assert.equal(outcome.link, `https://hashscan.io/testnet/transaction/${hash}`);
+});
+
+test("switches the network once per Hedera account, and never when already on the native network", () => {
+  const native = "hedera:testnet";
+  assert.equal(needsNetworkSwitch(undefined, "0.0.1", "eip155:296", native), true);
+  // The same account reported again must not switch (or close the wallet window) a second time.
+  assert.equal(needsNetworkSwitch("0.0.1", "0.0.1", "eip155:296", native), false);
+  // A restored session that is already on the native network needs nothing.
+  assert.equal(needsNetworkSwitch(undefined, "0.0.1", native, native), false);
+  // A different account is a new connection.
+  assert.equal(needsNetworkSwitch("0.0.1", "0.0.2", "eip155:296", native), true);
 });

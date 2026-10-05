@@ -7,7 +7,12 @@ import { useTheme } from "next-themes";
 import { hedera } from "viem/chains";
 import scaffoldConfig from "~~/scaffold.config";
 import { enabledChains, wagmiAdapter } from "~~/services/web3/wagmiConfig";
-import { type MirrorContractResult, entityIdFromLongZero, toMirrorTransactionId } from "~~/utils/hederaWallet";
+import {
+  type MirrorContractResult,
+  entityIdFromLongZero,
+  needsNetworkSwitch,
+  toMirrorTransactionId,
+} from "~~/utils/hederaWallet";
 import { mirrorNodeUrl } from "~~/utils/reserve";
 
 /**
@@ -25,6 +30,8 @@ import { mirrorNodeUrl } from "~~/utils/reserve";
 type HederaWallet = {
   /** True once AppKit is ready and the Connect button can open it. */
   ready: boolean;
+  /** Loads AppKit if it has not loaded yet, then opens the wallet list. */
+  open: () => Promise<void>;
   /** The connected Hedera-native account ("0.0.N"), if any. */
   accountId?: string;
   /** That account's EVM address, as the contracts see it (msg.sender). */
@@ -170,35 +177,57 @@ function loadAppKit() {
 export const HederaWalletProvider = ({ children }: { children: ReactNode }) => {
   const { resolvedTheme } = useTheme();
   const loaded = useRef<Loaded | null>(null);
+  const switchedFor = useRef<string | undefined>(undefined);
   const [ready, setReady] = useState(false);
   const [accountId, setAccountId] = useState<string>();
   const [evmAddress, setEvmAddress] = useState<`0x${string}`>();
 
+  const open = useCallback(async () => {
+    const { appKit } = await loadAppKit();
+    await appKit.open();
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
-    loadAppKit()
-      .then(result => {
-        if (cancelled) return;
-        loaded.current = result;
-        setReady(true);
-        // Only the Hedera-native account is tracked here; EVM accounts come from wagmi.
-        result.appKit.subscribeAccount(account => {
-          // caipAddress looks like "hedera:testnet:0.0.12345".
-          const id = account.isConnected ? account.caipAddress?.split(":").pop() : undefined;
-          setAccountId(id);
-          setEvmAddress(undefined);
-          if (!id) return;
-          evmAddressOf(id).then(setEvmAddress).catch(console.error);
-          // A Hedera wallet approves only the native network, but AppKit starts on the EVM one and would
-          // open "Switch Network" on first connect. Move it to the network the wallet approved.
-          Promise.resolve(result.appKit.switchNetwork(result.nativeNetwork))
-            .then(() => result.appKit.close())
-            .catch(console.error);
-        }, result.namespace);
-      })
-      .catch(console.error);
+    // The wallet stack is several MB. Start it once the page has rendered, so the first paint is not
+    // waiting on it. Clicking Connect before then loads it straight away (see `open`).
+    const handle = window.setTimeout(() => {
+      loadAppKit()
+        .then(result => {
+          if (cancelled) return;
+          loaded.current = result;
+          setReady(true);
+          // Only the Hedera-native account is tracked here; EVM accounts come from wagmi.
+          result.appKit.subscribeAccount(account => {
+            // caipAddress looks like "hedera:testnet:0.0.12345".
+            const id = account.isConnected ? account.caipAddress?.split(":").pop() : undefined;
+            setAccountId(id);
+            setEvmAddress(undefined);
+            if (!id) {
+              switchedFor.current = undefined;
+              return;
+            }
+            evmAddressOf(id).then(setEvmAddress).catch(console.error);
+            // A Hedera wallet approves only the native network, but AppKit starts on the EVM one and would
+            // open "Switch Network" on first connect. Move it to the network the wallet approved, once per
+            // account: this callback fires on every account update, and a restored session on page load.
+            const nativeId = (result.nativeNetwork as { caipNetworkId?: string }).caipNetworkId;
+            const currentId = (
+              result.appKit.getCaipNetwork?.(result.namespace) as { caipNetworkId?: string } | undefined
+            )?.caipNetworkId;
+            const needed = !!nativeId && needsNetworkSwitch(switchedFor.current, id, currentId, nativeId);
+            switchedFor.current = id;
+            if (!needed) return;
+            Promise.resolve(result.appKit.switchNetwork(result.nativeNetwork))
+              .then(() => result.appKit.close())
+              .catch(console.error);
+          }, result.namespace);
+        })
+        .catch(console.error);
+    }, 600);
     return () => {
       cancelled = true;
+      window.clearTimeout(handle);
     };
   }, []);
 
@@ -225,7 +254,7 @@ export const HederaWalletProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   return (
-    <HederaWalletContext.Provider value={{ ready, accountId, evmAddress, callContract }}>
+    <HederaWalletContext.Provider value={{ ready, open, accountId, evmAddress, callContract }}>
       {children}
     </HederaWalletContext.Provider>
   );
