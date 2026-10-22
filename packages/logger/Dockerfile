@@ -2,7 +2,10 @@
 #   docker build -f packages/logger/Dockerfile .
 # Configure it with the variables in packages/logger/.env.example.
 
-FROM node:22-slim AS build
+FROM node:22.23.4-slim AS build
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /repo
 # The lockfile covers every workspace, so install with the whole repository present.
 COPY . .
@@ -11,7 +14,10 @@ ENV HUSKY=0
 RUN yarn install --immutable
 RUN yarn workspace @sh/logger build
 
-FROM node:22-slim
+FROM node:22.23.4-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NODE_ENV=production
 # Dependencies install per workspace (nmHoistingLimits: workspaces), so the logger's own
